@@ -1,7 +1,7 @@
 {
   "name": "onigurumajs",
   "version": "1.0.0",
-  "description": "A pure JavaScript port of the oniguruma regex engine",
+  "description": "a pure JavaScript port of the oniguruma regex engine",
   "main": "index.js",
   "scripts": {
     "pretest": "standard",

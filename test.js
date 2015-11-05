@@ -109,7 +109,7 @@ tap.test('OnigScanner.findNextMatchSync finds best match', function (t) {
 // the following tests exercise various shims, replacements,
 // duct-tape, etc, to make xregexp behave like oniguruma:
 
-tap.test('handles leading lookbehind syntax', function (t) {
+tap.test('handles leading lookbehind', function (t) {
   var nscanner = new NOnigScanner(['(?<!a)b'])
 
   t.deepEqual(
@@ -125,7 +125,21 @@ tap.test('handles leading lookbehind syntax', function (t) {
   t.done()
 })
 
-// TODO: if lookbehind occurs immediately after | we should be able to support it.
+tap.test('handles lookbehind immediately following an alternation', function (t) {
+  var nscanner = new NOnigScanner(['cat|(?<!a)b|(?<=a)qwerty|banana'])
+
+  t.deepEqual(
+    { index: 0,
+      captureIndices: [ { index: 0, start: 0, end: 1, length: 1 } ],
+      scanner: {} },
+    nscanner.findNextMatchSync('bb')
+  )
+  t.equal(
+    nscanner.findNextMatchSync('ab'),
+    null
+  )
+  t.done()
+})
 
 tap.test('$ character should match both newline and end of string', function (t) {
   var nscanner = new NOnigScanner(['ab$'])
