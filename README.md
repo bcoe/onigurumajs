@@ -1,5 +1,9 @@
 # onigurumajs
 
+[![Build Status](https://travis-ci.org/bcoe/onigurumajs.svg)](https://travis-ci.org/bcoe/onigurumajs)
+[![Coverage Status](https://coveralls.io/repos/bcoe/onigurumajs/badge.svg?branch=master)](https://coveralls.io/r/bcoe/onigurumajs?branch=master)
+[![NPM version](https://img.shields.io/npm/v/onigurumajs.svg)](https://www.npmjs.com/package/onigurumajs)
+
 implementation of the [node-oniguruma API](https://github.com/atom/node-oniguruma/) using
 [xregexp](https://github.com/slevithan/xregexp), various shims, replacements, and elbow grease.
 
