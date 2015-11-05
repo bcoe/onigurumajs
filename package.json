@@ -1,0 +1,25 @@
+{
+  "name": "onigurumajs",
+  "version": "1.0.0",
+  "description": "A pure JavaScript port of the oniguruma regex engine",
+  "main": "index.js",
+  "scripts": {
+    "pretest": "standard",
+    "test": "tap --coverage test.js"
+  },
+  "keywords": [
+    "regex",
+    "oniguruma",
+    "javascript"
+  ],
+  "author": "Ben Coe <ben@npmjs.com>",
+  "license": "ISC",
+  "dependencies": {
+    "lodash": "^3.10.1",
+    "xregexp": "^3.0.0"
+  },
+  "devDependencies": {
+    "standard": "^5.3.1",
+    "tap": "^2.2.0"
+  }
+}
