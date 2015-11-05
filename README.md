@@ -7,7 +7,7 @@
 implementation of the [node-oniguruma API](https://github.com/atom/node-oniguruma/) using
 [xregexp](https://github.com/slevithan/xregexp), various shims, replacements, and elbow grease.
 
-# Why does this exist?
+## Why does this exist?
 
 1. It would be nice to be able to parse [TextMate grammars](https://manual.macromates.com/en/language_grammars) (the basis for syntax highlighting in Atom) in pure JS:
 
