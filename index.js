@@ -120,18 +120,56 @@ OnigScanner.prototype.findNextMatch = function (text, start, cb) {
   }
 }
 
-// build up and exec a regex, handles
-// replacements, lookbehind support, etc.
 function execRegex (text, pattern, start) {
   var results = null
 
-  if (/^\(\?[><][=!]?/.exec(pattern.original)) {
-    results = xregexp.execLb(text, pattern.original, start)
-  } else if (pattern.xregexp) {
+  if (pattern.xregexp) {
+    // a regex that xregexp can handle right out of the gate.
     results = xregexp.exec(text, pattern, start)
+  } else if (/^\(\?[><][=!]?/.exec(pattern.original)) {
+    // a leading lookbehind regex.
+    results = xregexp.execLb(text, pattern.original, start)
+  } else if (/\(\?[><][=!]?/.exec(pattern.original)) {
+    // allow for an alternation chracter followed by
+    // a lookbehind regex.
+    var splitPattern = pattern.original.split(/\|(\(\?[><][=!][^|]*)/g)
+    if (splitPattern.length > 1) results = alternationPrefixedLookbehinds(text, splitPattern, start)
   }
 
   return results
+}
+
+function alternationPrefixedLookbehinds (text, splitPattern, start) {
+  var patterns = []
+  var currentPattern = ''
+  var result = null
+
+  // rebuild valid regex from splitting on (foo|(?<=foo)).
+  for (var i = 0, pattern; (pattern = splitPattern[i]) !== undefined; i++) {
+    if (/\(\?[><][=!]?/.exec(pattern)) {
+      patterns.push(currentPattern)
+      currentPattern = ''
+    }
+    currentPattern += pattern
+  }
+  patterns.push(currentPattern)
+
+  // now apply each pattern.
+  for (i = 0, pattern; (pattern = patterns[i]) !== undefined; i++) {
+    try {
+      if (/\(\?[><][=!]?/.exec(pattern)) {
+        result = xregexp.execLb(text, pattern, start)
+      } else {
+        result = xregexp.exec(text, xregexp(pattern), start)
+      }
+      if (result) return result
+    } catch (e) {
+      // we're officially in uncharted territory.
+      return null
+    }
+  }
+
+  return null
 }
 
 function applyReplacements (pattern) {
