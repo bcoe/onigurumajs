@@ -1,18 +1,18 @@
-var _ = require('lodash')
-var xregexp = require('xregexp')
-require('./lib/xregexp-lookbehind')(xregexp)
-require('./lib/xregexp-xescape')(xregexp)
+const omit = require('lodash.omit')
+const Binding = require('./lib/binding')
+const createRegex = Binding.cwrap('create_regex', 'number', ['string', 'number'])
+const search = Binding.cwrap('search', 'number', ['number', 'string', 'number', 'number'])
+const end = Binding.cwrap('end', null, ['number'])
+const utf8 = require('utf8')
+const stringWidth = require('string-width')
+
+const RESULT_BUFFER_SIZE = 4096
+const RESULT_BUFFER = Binding._malloc(RESULT_BUFFER_SIZE * 8)
 
 function OnigRegExp (pattern) {
-  pattern = applyReplacements(pattern)
-  try {
-    this.pattern = xregexp(pattern)
-    this.pattern.original = pattern
-  } catch (e) {
-    // we'll do it live!
-    this.pattern = {
-      original: pattern
-    }
+  this.regex = createRegex(pattern, RESULT_BUFFER)
+  if (!this.regex) {
+    throw Error(Binding.Pointer_stringify(RESULT_BUFFER))
   }
 }
 
@@ -26,13 +26,13 @@ OnigRegExp.prototype.search = function (text, start, cb) {
 
   start = start || 0
 
-  try {
-    results = execRegex(text, this.pattern, start)
-  } catch (e) {
-    cb(null, null)
+  if (!search(this.regex, text, RESULT_BUFFER, start)) {
+    return cb(Error(Binding.Pointer_stringify(RESULT_BUFFER)), null)
+  } else {
+    results = JSON.parse(Binding.Pointer_stringify(RESULT_BUFFER))
   }
 
-  if (results) cb(null, transformMatches(results, text, start))
+  if (results.length) cb(null, transformMatches(results, text, start))
   else cb(null, null)
 }
 
@@ -62,24 +62,24 @@ OnigRegExp.prototype.testSync = function (text) {
 
 function OnigScanner (patterns) {
   this.patterns = []
-  for (var i = 0, pattern, xpattern; (pattern = patterns[i]) !== undefined; i++) {
-    try {
-      pattern = applyReplacements(pattern)
-      xpattern = xregexp(pattern)
-      xpattern.original = pattern
-      this.patterns.push(xpattern)
-    } catch (e) {
-      // we'll do it live!
-      this.patterns.push({
-        original: pattern
-      })
+  for (var i = 0, pattern; (pattern = patterns[i]) !== undefined; i++) {
+    const regex = createRegex(pattern, RESULT_BUFFER)
+    if (!regex) {
+      throw Error(Binding.Pointer_stringify(RESULT_BUFFER))
     }
+    this.patterns.push(regex)
   }
+}
+
+OnigScanner.prototype.destroy = function () {
+  (this.patterns || []).forEach((pattern) => {
+    end(pattern)
+  })
 }
 
 OnigScanner.prototype.findNextMatch = function (text, start, cb) {
   var bestMatch = null
-  var bestIndex = 1
+  var bestLocation = 0
   var results = null
 
   if (typeof start === 'function') {
@@ -92,94 +92,34 @@ OnigScanner.prototype.findNextMatch = function (text, start, cb) {
   // https://github.com/atom/node-oniguruma/blob/master/src/onig-searcher.cc
   for (var i = 0, pattern; (pattern = this.patterns[i]) !== undefined; i++) {
     try {
-      results = execRegex(text, pattern, start)
+      if (!search(pattern, text, RESULT_BUFFER, start)) {
+        return cb(Error(Binding.Pointer_stringify(RESULT_BUFFER)), null)
+      } else {
+        results = JSON.parse(Binding.Pointer_stringify(RESULT_BUFFER))
+      }
 
-      if (!results) continue
-
-      if (!bestMatch || results.index < bestMatch.index) {
+      if (!results.length) continue
+      if (bestMatch === null || results[0].start < bestLocation) {
         bestMatch = results
-        bestIndex = i
+        bestLocation = results[0].start
+        bestMatch.index = i
       }
     } catch (e) {
-      // ignore failing patterns until we can add
-      // shims for more with tests!
-      // console.log('cannot match: ', e.message)
+      console.warn(e)
     }
   }
 
   if (bestMatch) {
     cb(null, {
       captureIndices: transformMatches(bestMatch, text, start).map(function (match) {
-        return _.omit(match, 'match')
+        return omit(match, 'match')
       }),
-      index: bestIndex,
+      index: bestMatch.index,
       scanner: {}
     })
   } else {
     cb(null, null)
   }
-}
-
-function execRegex (text, pattern, start) {
-  var results = null
-
-  if (pattern.xregexp) {
-    // a regex that xregexp can handle right out of the gate.
-    results = xregexp.exec(text, pattern, start)
-  } else if (/^\(\?[><][=!]?/.exec(pattern.original)) {
-    // a leading lookbehind regex.
-    results = xregexp.execLb(text, pattern.original, start)
-  } else if (/\(\?[><][=!]?/.exec(pattern.original)) {
-    // allow for an alternation chracter followed by
-    // a lookbehind regex.
-    var splitPattern = pattern.original.split(/\|(\(\?[><][=!][^|]*)/g)
-    if (splitPattern.length > 1) results = alternationPrefixedLookbehinds(text, splitPattern, start)
-  }
-
-  return results
-}
-
-function alternationPrefixedLookbehinds (text, splitPattern, start) {
-  var patterns = []
-  var currentPattern = ''
-  var result = null
-
-  // rebuild valid regex from splitting on (foo|(?<=foo)).
-  for (var i = 0, pattern; (pattern = splitPattern[i]) !== undefined; i++) {
-    if (/\(\?[><][=!]?/.exec(pattern)) {
-      patterns.push(currentPattern)
-      currentPattern = ''
-    }
-    currentPattern += pattern
-  }
-  patterns.push(currentPattern)
-
-  // now apply each pattern.
-  for (i = 0, pattern; (pattern = patterns[i]) !== undefined; i++) {
-    try {
-      if (/\(\?[><][=!]?/.exec(pattern)) {
-        result = xregexp.execLb(text, pattern, start)
-      } else {
-        result = xregexp.exec(text, xregexp(pattern), start)
-      }
-      if (result) return result
-    } catch (e) {
-      // we're officially in uncharted territory.
-      return null
-    }
-  }
-
-  return null
-}
-
-function applyReplacements (pattern) {
-  // TODO: write tests and/or find better generic
-  // solutions for each of these replacements.
-  pattern = pattern.replace(/\\h/g, '[\t\p{Zs}]') // any whitespace character.
-  pattern = pattern.replace(/\\A/g, '^') // \A matches start of string, rather than line.
-  pattern = pattern.replace(/\\G/, '') // start of match group.
-  pattern = pattern.replace(/\$$/, '[\r\n]?$') // match \n or end of string.
-  return pattern
 }
 
 OnigScanner.prototype.findNextMatchSync = function (text, start) {
@@ -192,22 +132,20 @@ OnigScanner.prototype.findNextMatchSync = function (text, start) {
 }
 
 function transformMatches (results, text, start) {
-  var matchIndex = 0
-  var slicedText = text.slice(start)
-  var difference = text.length - slicedText.length
   var transform = []
 
   results.forEach(function (result, i) {
-    matchIndex = difference + slicedText.indexOf(result)
-    var start = result ? matchIndex : results.index
-    var end = result ? matchIndex + result.length : results.index
-    if (typeof result === 'undefined') start = end = 0
+    const match = utf8.decode(
+      utf8.encode(text).substring(result.start, result.end)
+    )
+    const length = stringWidth(match)
+    const start = result.start !== -1 ? result.start : 0
     transform.push({
       index: i,
       start: start,
-      end: end,
-      match: result,
-      length: result ? result.length : 0
+      end: start + length,
+      length: length,
+      match: match
     })
   })
 

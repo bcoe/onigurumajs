@@ -4,8 +4,12 @@
   "description": "a pure JavaScript port of the oniguruma regex engine",
   "main": "index.js",
   "scripts": {
-    "pretest": "standard",
+    "//pretest": "standard",
     "test": "tap --coverage test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:bcoe/onigurumajs.git"
   },
   "keywords": [
     "regex",
@@ -15,11 +19,24 @@
   "author": "Ben Coe <ben@npmjs.com>",
   "license": "ISC",
   "dependencies": {
-    "lodash": "^3.10.1",
-    "xregexp": "^3.0.0"
+    "lodash.omit": "^4.5.0",
+    "string-width": "^2.0.0",
+    "utf8": "^2.1.2"
   },
   "devDependencies": {
     "standard": "^5.3.1",
-    "tap": "^2.2.0"
+    "tap": "^10.3.2"
+  },
+  "files": [
+    "index.js",
+    "lib"
+  ],
+  "standard": {
+    "ignore": "lib/binding.js"
+  },
+  "nyc": {
+    "exclude": [
+      "lib/binding.js"
+    ]
   }
 }
