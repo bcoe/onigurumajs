@@ -1,6 +1,5 @@
 var NOnigRegExp = require('./').OnigRegExp
 var NOnigScanner = require('./').OnigScanner
-// var OnigScanner = require('oniguruma').OnigScanner
 var tap = require('tap')
 
 tap.test('OnigRegExp.searchSync begins search at index 0', function (t) {
@@ -152,13 +151,15 @@ tap.test('$ character should match both newline and end of string', function (t)
   t.done()
 })
 
-tap.test('\\x should work as an alias for \\u', function (t) {
-  var nscanner = new NOnigScanner(['\\x{2603}'])
-
-  t.notEqual(
-    nscanner.findNextMatchSync('☃'),
-    null
+tap.test('unicode characters', function (t) {
+  var nregex = new NOnigRegExp("'(\uD835\uDF97)'")
+  var result = nregex.searchSync("'\uD835\uDF97'")
+  console.log(result)
+/*
+  t.deepEqual(
+    [ { index: 0, start: 1, end: 4, length: 3, match: 'abc' },
+      { index: 1, start: 2, end: 3, length: 1, match: 'b' }],
+    nregex.searchSync('!abcdef!abcdef')
   )
-
-  t.done()
+  t.done()*/
 })
