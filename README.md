@@ -1,3 +1,5 @@
+# ⚠️ This project is deprecated in favor of [oniguruma-to-es](https://github.com/slevithan/oniguruma-to-es). Please migrate over.
+
 # onigurumajs
 
 [![Build Status](https://travis-ci.org/bcoe/onigurumajs.svg)](https://travis-ci.org/bcoe/onigurumajs)
